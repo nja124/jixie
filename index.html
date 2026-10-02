@@ -2,18 +2,93 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script>
+  // 提前应用主题，避免刷新时闪烁
+  (function () {
+    try {
+      var t = localStorage.getItem('theme-2048') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>2048</title>
 <style>
+  :root {
+    --bg: #faf8ef;
+    --text: #776e65;
+    --score-box-bg: #bbada0;
+    --score-box-label: #eee4da;
+    --board-bg: #bbada0;
+    --grid-cell: rgba(238, 228, 218, 0.35);
+    --tile-base-bg: #3c3a32;
+    --tile-base-text: #f9f6f2;
+    --tile-2-bg: #eee4da; --tile-2-text: #776e65;
+    --tile-4-bg: #ede0c8; --tile-4-text: #776e65;
+    --tile-8-bg: #f2b179;
+    --tile-16-bg: #f59563;
+    --tile-32-bg: #f67c5f;
+    --tile-64-bg: #f65e3b;
+    --tile-128-bg: #edcf72;
+    --tile-256-bg: #edcc61;
+    --tile-512-bg: #edc850;
+    --tile-1024-bg: #edc53f;
+    --tile-2048-bg: #edc22e;
+    --btn-bg: #8f7a66;
+    --btn-hover: #9f8b77;
+    --btn-text: #f9f6f2;
+    --overlay-bg: rgba(238, 228, 218, 0.78);
+    --overlay-win: rgba(237, 194, 46, 0.55);
+    --hint: #9a918a;
+    --score-addition: rgba(119, 110, 101, 0.9);
+    --modal-bg: rgba(23, 22, 18, 0.55);
+    --modal-panel: #fff;
+    --modal-text: #776e65;
+    --modal-border: #eee4da;
+  }
+  [data-theme="dark"] {
+    --bg: #1a1a2e;
+    --text: #e8e8f0;
+    --score-box-bg: #16213e;
+    --score-box-label: #8b94b8;
+    --board-bg: #16213e;
+    --grid-cell: rgba(255, 255, 255, 0.08);
+    --tile-base-bg: #2a2a44;
+    --tile-base-text: #f0f0f8;
+    --tile-2-bg: #2a2a44; --tile-2-text: #e8e8f0;
+    --tile-4-bg: #2f3a5e; --tile-4-text: #e8e8f0;
+    --tile-8-bg: #3b5bbd;
+    --tile-16-bg: #4a4fa8;
+    --tile-32-bg: #5a3fa0;
+    --tile-64-bg: #6e3b8a;
+    --tile-128-bg: #1e88e5;
+    --tile-256-bg: #00acc1;
+    --tile-512-bg: #26a69a;
+    --tile-1024-bg: #43a047;
+    --tile-2048-bg: #f9a825;
+    --btn-bg: #4a4fa8;
+    --btn-hover: #5a5fc0;
+    --btn-text: #f0f0f8;
+    --overlay-bg: rgba(15, 15, 30, 0.82);
+    --overlay-win: rgba(249, 168, 37, 0.45);
+    --hint: #7a7f9a;
+    --score-addition: rgba(232, 232, 240, 0.9);
+    --modal-bg: rgba(0, 0, 0, 0.6);
+    --modal-panel: #1f2340;
+    --modal-text: #e8e8f0;
+    --modal-border: #2f3a5e;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: "Clear Sans", "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: #faf8ef;
-    color: #776e65;
+    background: var(--bg);
+    color: var(--text);
     display: flex;
     justify-content: center;
     min-height: 100vh;
     padding: 20px 0;
+    transition: background .25s ease, color .25s ease;
   }
   .container { width: min(92vw, 460px); }
 
@@ -22,20 +97,20 @@
   .scores { display: flex; gap: 8px; }
   .score-box {
     position: relative;
-    background: #bbada0;
+    background: var(--score-box-bg);
     border-radius: 6px;
     padding: 8px 14px;
     text-align: center;
     color: #fff;
     min-width: 76px;
   }
-  .score-box .label { display: block; font-size: 12px; color: #eee4da; }
+  .score-box .label { display: block; font-size: 12px; color: var(--score-box-label); }
   .score-box .value { font-size: 22px; font-weight: 700; }
   .score-addition {
     position: absolute;
     left: 0; right: 0; top: 0;
     font-size: 20px; font-weight: 700;
-    color: rgba(119, 110, 101, 0.9);
+    color: var(--score-addition);
     animation: scoreUp 0.6s ease-in forwards;
     pointer-events: none;
   }
@@ -46,21 +121,23 @@
 
   .sub-header { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 16px; }
   .sub-header p { font-size: 15px; }
+  .sub-header .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   button {
-    background: #8f7a66;
-    color: #f9f6f2;
+    background: var(--btn-bg);
+    color: var(--btn-text);
     border: none;
     border-radius: 6px;
     padding: 10px 18px;
     font-size: 15px;
     font-weight: 700;
     cursor: pointer;
+    transition: background .2s ease;
   }
-  button:hover { background: #9f8b77; }
+  button:hover { background: var(--btn-hover); }
 
   .board {
     position: relative;
-    background: #bbada0;
+    background: var(--board-bg);
     border-radius: 8px;
     width: 100%;
     aspect-ratio: 1;
@@ -73,7 +150,7 @@
     gap: 10px;
     padding: 10px;
   }
-  .grid-bg div { background: rgba(238, 228, 218, 0.35); border-radius: 6px; }
+  .grid-bg div { background: var(--grid-cell); border-radius: 6px; }
 
   #tiles { position: absolute; inset: 0; }
   .tile {
@@ -88,20 +165,20 @@
     border-radius: 6px;
     display: flex; align-items: center; justify-content: center;
     font-weight: 700;
-    background: #3c3a32;
-    color: #f9f6f2;
+    background: var(--tile-base-bg);
+    color: var(--tile-base-text);
   }
-  .tile-2    { background: #eee4da; color: #776e65; }
-  .tile-4    { background: #ede0c8; color: #776e65; }
-  .tile-8    { background: #f2b179; }
-  .tile-16   { background: #f59563; }
-  .tile-32   { background: #f67c5f; }
-  .tile-64   { background: #f65e3b; }
-  .tile-128  { background: #edcf72; }
-  .tile-256  { background: #edcc61; }
-  .tile-512  { background: #edc850; }
-  .tile-1024 { background: #edc53f; }
-  .tile-2048 { background: #edc22e; }
+  .tile-2    { background: var(--tile-2-bg);    color: var(--tile-2-text); }
+  .tile-4    { background: var(--tile-4-bg);    color: var(--tile-4-text); }
+  .tile-8    { background: var(--tile-8-bg); }
+  .tile-16   { background: var(--tile-16-bg); }
+  .tile-32   { background: var(--tile-32-bg); }
+  .tile-64   { background: var(--tile-64-bg); }
+  .tile-128  { background: var(--tile-128-bg); }
+  .tile-256  { background: var(--tile-256-bg); }
+  .tile-512  { background: var(--tile-512-bg); }
+  .tile-1024 { background: var(--tile-1024-bg); }
+  .tile-2048 { background: var(--tile-2048-bg); }
 
   .tile-new    { animation: appear 200ms ease 100ms backwards; }
   .tile-merged { animation: pop 200ms ease 100ms backwards; }
@@ -110,7 +187,7 @@
 
   .overlay {
     position: absolute; inset: 0;
-    background: rgba(238, 228, 218, 0.78);
+    background: var(--overlay-bg);
     border-radius: 8px;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
@@ -118,18 +195,62 @@
     z-index: 10;
     animation: fadeIn 400ms ease;
   }
-  .overlay.win { background: rgba(237, 194, 46, 0.55); }
+  .overlay.win { background: var(--overlay-win); }
   .overlay.hidden { display: none; }
   .overlay-message { font-size: 42px; font-weight: 800; }
   .overlay-buttons { display: flex; gap: 10px; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-  .hint { margin-top: 14px; font-size: 13px; color: #9a918a; text-align: center; }
+  .hint { margin-top: 14px; font-size: 13px; color: var(--hint); text-align: center; }
+
+  /* 历史记录弹窗 */
+  .modal {
+    position: fixed; inset: 0;
+    background: var(--modal-bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+    padding: 20px;
+    animation: fadeIn 300ms ease;
+  }
+  .modal.hidden { display: none; }
+  .modal-panel {
+    background: var(--modal-panel);
+    color: var(--modal-text);
+    border-radius: 10px;
+    padding: 22px 20px;
+    width: min(92vw, 420px);
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .modal-head h3 { font-size: 20px; }
+  .modal-close {
+    padding: 4px 12px; font-size: 18px; line-height: 1;
+    background: transparent; color: var(--modal-text);
+  }
+  .modal-close:hover { background: rgba(127,127,127,0.15); }
+  .history-list { overflow-y: auto; list-style: none; }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 6px;
+    border-bottom: 1px solid var(--modal-border);
+    font-size: 14px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-index { color: var(--hint); width: 28px; }
+  .history-score { font-weight: 700; min-width: 60px; text-align: right; }
+  .history-meta { color: var(--hint); font-size: 12px; text-align: right; }
+  .history-empty { text-align: center; color: var(--hint); padding: 30px 0; }
 
   @media (max-width: 420px) {
     h1 { font-size: 42px; }
     .score-box { min-width: 58px; padding: 6px 10px; }
     .score-box .value { font-size: 18px; }
+    button { padding: 8px 12px; font-size: 13px; }
   }
 </style>
 </head>
@@ -155,7 +276,11 @@
 
     <div class="sub-header">
       <p>合并相同数字，拼出 <strong>2048</strong>！</p>
-      <button id="new-game">新游戏</button>
+      <div class="actions">
+        <button id="theme-toggle">🌙 深色</button>
+        <button id="history-btn">📜 历史</button>
+        <button id="new-game">新游戏</button>
+      </div>
     </div>
 
     <div class="board" id="board">
@@ -178,11 +303,22 @@
     <p class="hint">电脑：方向键 / WASD 移动 &nbsp;·&nbsp; 手机：滑动屏幕</p>
   </div>
 
+  <div class="modal hidden" id="history-modal">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3>最近 10 次记录</h3>
+        <button class="modal-close" id="history-close">✕</button>
+      </div>
+      <ul class="history-list" id="history-list"></ul>
+    </div>
+  </div>
+
 <script>
 (function () {
   var SIZE = 4;
   var GAP = 10;
   var grid, score, best, plays, won, keepPlaying, gameOver;
+  var gameStartTime, recorded;
 
   var boardEl = document.getElementById('board');
   var tilesEl = document.getElementById('tiles');
@@ -193,6 +329,11 @@
   var overlayEl = document.getElementById('overlay');
   var overlayMsgEl = document.getElementById('overlay-message');
   var keepBtn = document.getElementById('overlay-keep');
+  var themeBtn = document.getElementById('theme-toggle');
+  var historyBtn = document.getElementById('history-btn');
+  var historyModal = document.getElementById('history-modal');
+  var historyList = document.getElementById('history-list');
+  var historyClose = document.getElementById('history-close');
 
   // 方向向量：0 上, 1 右, 2 下, 3 左
   var vectors = [
@@ -237,6 +378,85 @@
 
   function savePlays() {
     try { localStorage.setItem('plays-2048', String(plays)); } catch (e) {}
+  }
+
+  // ---------- 主题 ----------
+  function loadTheme() {
+    try { return localStorage.getItem('theme-2048') || 'light'; }
+    catch (e) { return 'light'; }
+  }
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = theme === 'dark' ? '☀️ 浅色' : '🌙 深色';
+    try { localStorage.setItem('theme-2048', theme); } catch (e) {}
+  }
+  function toggleTheme() {
+    var cur = document.documentElement.getAttribute('data-theme') || 'light';
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+
+  // ---------- 历史记录 ----------
+  function loadHistory() {
+    try {
+      var raw = localStorage.getItem('history-2048');
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function saveHistory(arr) {
+    try { localStorage.setItem('history-2048', JSON.stringify(arr)); } catch (e) {}
+  }
+  function recordGame() {
+    if (recorded) return;
+    recorded = true;
+    var duration = gameStartTime ? Date.now() - gameStartTime : 0;
+    var history = loadHistory();
+    history.unshift({
+      score: score,
+      duration: duration,
+      date: Date.now()
+    });
+    if (history.length > 10) history = history.slice(0, 10);
+    saveHistory(history);
+  }
+  function formatDuration(ms) {
+    var s = Math.floor(ms / 1000);
+    var m = Math.floor(s / 60);
+    s = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function formatDate(ts) {
+    var d = new Date(ts);
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+           ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function renderHistory() {
+    var history = loadHistory();
+    historyList.innerHTML = '';
+    if (!history.length) {
+      var empty = document.createElement('li');
+      empty.className = 'history-empty';
+      empty.textContent = '暂无记录，开始你的第一局吧！';
+      historyList.appendChild(empty);
+      return;
+    }
+    history.forEach(function (item, i) {
+      var li = document.createElement('li');
+      li.className = 'history-item';
+      li.innerHTML =
+        '<span class="history-index">#' + (i + 1) + '</span>' +
+        '<span class="history-score">' + item.score + ' 分</span>' +
+        '<span class="history-meta">' + formatDuration(item.duration) + '<br>' + formatDate(item.date) + '</span>';
+      historyList.appendChild(li);
+    });
+  }
+  function showHistory() {
+    renderHistory();
+    historyModal.classList.remove('hidden');
+  }
+  function hideHistory() {
+    historyModal.classList.add('hidden');
   }
 
   function addRandomTile() {
@@ -311,7 +531,7 @@
           tile.x = pos.next.x;
           tile.y = pos.next.y;
           gained += merged.value;
-          if (merged.value === 2048) won = true;
+          if (merged.value === 2048) { won = true; recordGame(); }
           moved = true;
         } else if (pos.farthest.x !== x || pos.farthest.y !== y) {
           // 滑动
@@ -332,7 +552,7 @@
         saveBest();
       }
       addRandomTile();
-      if (!movesAvailable()) gameOver = true;
+      if (!movesAvailable()) { gameOver = true; recordGame(); }
       render();
     }
   }
@@ -438,6 +658,8 @@
     won = false;
     keepPlaying = false;
     gameOver = false;
+    recorded = false;
+    gameStartTime = Date.now();
     best = loadBest();
     plays += 1;
     savePlays();
@@ -482,6 +704,14 @@
   });
   window.addEventListener('resize', render);
 
+  themeBtn.addEventListener('click', toggleTheme);
+  historyBtn.addEventListener('click', showHistory);
+  historyClose.addEventListener('click', hideHistory);
+  historyModal.addEventListener('click', function (e) {
+    if (e.target === historyModal) hideHistory();
+  });
+
+  applyTheme(loadTheme());
   plays = loadPlays();
   init();
 })();
