@@ -125,6 +125,12 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .hint { margin-top: 14px; font-size: 13px; color: #9a918a; text-align: center; }
+
+  @media (max-width: 420px) {
+    h1 { font-size: 42px; }
+    .score-box { min-width: 58px; padding: 6px 10px; }
+    .score-box .value { font-size: 18px; }
+  }
 </style>
 </head>
 <body>
@@ -139,6 +145,10 @@
         <div class="score-box">
           <span class="label">最高分</span>
           <span class="value" id="best">0</span>
+        </div>
+        <div class="score-box">
+          <span class="label">局数</span>
+          <span class="value" id="plays">0</span>
         </div>
       </div>
     </header>
@@ -172,12 +182,13 @@
 (function () {
   var SIZE = 4;
   var GAP = 10;
-  var grid, score, best, won, keepPlaying, gameOver;
+  var grid, score, best, plays, won, keepPlaying, gameOver;
 
   var boardEl = document.getElementById('board');
   var tilesEl = document.getElementById('tiles');
   var scoreEl = document.getElementById('score');
   var bestEl = document.getElementById('best');
+  var playsEl = document.getElementById('plays');
   var scoreBoxEl = document.getElementById('score-box');
   var overlayEl = document.getElementById('overlay');
   var overlayMsgEl = document.getElementById('overlay-message');
@@ -217,6 +228,15 @@
 
   function saveBest() {
     try { localStorage.setItem('best-2048', String(best)); } catch (e) {}
+  }
+
+  function loadPlays() {
+    try { return Number(localStorage.getItem('plays-2048')) || 0; }
+    catch (e) { return 0; }
+  }
+
+  function savePlays() {
+    try { localStorage.setItem('plays-2048', String(plays)); } catch (e) {}
   }
 
   function addRandomTile() {
@@ -384,6 +404,7 @@
 
     scoreEl.textContent = score;
     bestEl.textContent = best;
+    playsEl.textContent = plays;
 
     if (won && !keepPlaying) {
       showOverlay('你赢了！', true);
@@ -418,6 +439,8 @@
     keepPlaying = false;
     gameOver = false;
     best = loadBest();
+    plays += 1;
+    savePlays();
     addRandomTile();
     addRandomTile();
     render();
@@ -459,6 +482,7 @@
   });
   window.addEventListener('resize', render);
 
+  plays = loadPlays();
   init();
 })();
 </script>
