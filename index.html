@@ -134,6 +134,17 @@
     transition: background .2s ease;
   }
   button:hover { background: var(--btn-hover); }
+  select {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+  }
 
   .board {
     position: relative;
@@ -279,6 +290,12 @@
       <div class="actions">
         <button id="theme-toggle">🌙 深色</button>
         <button id="history-btn">📜 历史</button>
+        <button id="auto-btn">🤖 自动合成</button>
+        <select id="speed-select" title="速度">
+          <option value="400">慢</option>
+          <option value="220" selected>中</option>
+          <option value="100">快</option>
+        </select>
         <button id="new-game">新游戏</button>
       </div>
     </div>
@@ -334,6 +351,8 @@
   var historyModal = document.getElementById('history-modal');
   var historyList = document.getElementById('history-list');
   var historyClose = document.getElementById('history-close');
+  var autoBtn = document.getElementById('auto-btn');
+  var speedSelect = document.getElementById('speed-select');
 
   // 方向向量：0 上, 1 右, 2 下, 3 左
   var vectors = [
@@ -407,16 +426,21 @@
     try { localStorage.setItem('history-2048', JSON.stringify(arr)); } catch (e) {}
   }
   function recordGame() {
-    if (recorded) return;
-    recorded = true;
     var duration = gameStartTime ? Date.now() - gameStartTime : 0;
     var history = loadHistory();
-    history.unshift({
-      score: score,
-      duration: duration,
-      date: Date.now()
-    });
-    if (history.length > 10) history = history.slice(0, 10);
+    if (!recorded) {
+      history.unshift({
+        score: score,
+        duration: duration,
+        date: Date.now()
+      });
+      if (history.length > 10) history = history.slice(0, 10);
+      recorded = true;
+    } else if (history.length) {
+      // 同一局继续到结束（如自动合成越过 2048），更新为最终分数与时长
+      history[0].score = score;
+      history[0].duration = duration;
+    }
     saveHistory(history);
   }
   function formatDuration(ms) {
@@ -457,6 +481,179 @@
   }
   function hideHistory() {
     historyModal.classList.add('hidden');
+  }
+
+  // ============ 自动合成 AI ============
+  var autoTimer = null;
+  var autoPlaying = false;
+
+  // 将游戏 grid（tile 对象）转为纯数值网格，供 AI 模拟使用
+  function gridToValues(g) {
+    var v = [];
+    for (var y = 0; y < SIZE; y++) {
+      v.push([]);
+      for (var x = 0; x < SIZE; x++) v[y].push(g[y][x] ? g[y][x].value : null);
+    }
+    return v;
+  }
+
+  function cloneValues(g) {
+    var ng = [];
+    for (var y = 0; y < SIZE; y++) {
+      ng.push([]);
+      for (var x = 0; x < SIZE; x++) ng[y].push(g[y][x]);
+    }
+    return ng;
+  }
+
+  function simFindFarthest(x, y, vector, g) {
+    var prev = { x: x, y: y };
+    var cur = { x: x + vector.x, y: y + vector.y };
+    while (cur.x >= 0 && cur.x < SIZE && cur.y >= 0 && cur.y < SIZE && g[cur.y][cur.x] === null) {
+      prev = cur;
+      cur = { x: cur.x + vector.x, y: cur.y + vector.y };
+    }
+    return { farthest: prev, next: cur };
+  }
+
+  // 纯函数模拟一次移动，返回新网格、是否移动、本次得分
+  function simulateMove(g, dir) {
+    var vector = vectors[dir];
+    var trav = buildTraversals(vector);
+    var ng = cloneValues(g);
+    var moved = false;
+    var gained = 0;
+    var merged = [];
+    for (var yy = 0; yy < SIZE; yy++) {
+      merged.push([]);
+      for (var xx = 0; xx < SIZE; xx++) merged[yy].push(false);
+    }
+    trav.x.forEach(function (x) {
+      trav.y.forEach(function (y) {
+        var v = ng[y][x];
+        if (v === null) return;
+        var pos = simFindFarthest(x, y, vector, ng);
+        var nextIn = pos.next;
+        if (nextIn.x >= 0 && nextIn.x < SIZE && nextIn.y >= 0 && nextIn.y < SIZE &&
+            ng[nextIn.y][nextIn.x] !== null && ng[nextIn.y][nextIn.x] === v && !merged[nextIn.y][nextIn.x]) {
+          ng[nextIn.y][nextIn.x] = v * 2;
+          ng[y][x] = null;
+          merged[nextIn.y][nextIn.x] = true;
+          gained += v * 2;
+          moved = true;
+        } else if (pos.farthest.x !== x || pos.farthest.y !== y) {
+          ng[pos.farthest.y][pos.farthest.x] = v;
+          ng[y][x] = null;
+          moved = true;
+        }
+      });
+    });
+    return { grid: ng, moved: moved, score: gained };
+  }
+
+  // 蛇形加权矩阵（2048教学的"角落+蛇形"策略：最大块锚定左下角，沿蛇形递增排列）
+  // 数值越大的位置越倾向于放更大的方块，形成从左下角出发的蛇形递增链
+  var WEIGHTS = [
+    [ 4,  3,  2,  1],
+    [ 5,  6,  7,  8],
+    [12, 11, 10,  9],
+    [13, 14, 15, 16]
+  ];
+
+  // 启发式评估：蛇形加权分（原始值×权重）+ 空格数 + 平滑度
+  // 经参数调优：empty=20, smoothness=1.0 时 2048 成功率最高
+  function evaluate(g) {
+    var empty = 0;
+    var weighted = 0;
+    var smoothness = 0;
+
+    for (var y = 0; y < SIZE; y++) {
+      for (var x = 0; x < SIZE; x++) {
+        var v = g[y][x];
+        if (v === null) { empty++; continue; }
+        weighted += v * WEIGHTS[y][x];
+        if (x + 1 < SIZE && g[y][x + 1] !== null) smoothness -= Math.abs(Math.log2(v) - Math.log2(g[y][x + 1]));
+        if (y + 1 < SIZE && g[y + 1][x] !== null) smoothness -= Math.abs(Math.log2(v) - Math.log2(g[y + 1][x]));
+      }
+    }
+
+    return weighted + empty * 20 + smoothness * 1.0;
+  }
+
+  // expectimax：玩家节点选最优方向，机会节点按 2(0.9)/4(0.1) 对空格求期望
+  function expectimax(g, depth, isPlayer) {
+    if (depth === 0) return evaluate(g);
+    if (isPlayer) {
+      var best = -Infinity;
+      var any = false;
+      for (var d = 0; d < 4; d++) {
+        var res = simulateMove(g, d);
+        if (!res.moved) continue;
+        any = true;
+        var val = expectimax(res.grid, depth - 1, false);
+        if (val > best) best = val;
+      }
+      return any ? best : evaluate(g);
+    } else {
+      var empty = [];
+      for (var y = 0; y < SIZE; y++)
+        for (var x = 0; x < SIZE; x++)
+          if (g[y][x] === null) empty.push({ x: x, y: y });
+      if (!empty.length) return evaluate(g);
+      // 空格较多时抽样，避免过慢
+      var limit = Math.min(empty.length, 6);
+      var sum = 0;
+      for (var i = 0; i < limit; i++) {
+        var c = empty[i];
+        g[c.y][c.x] = 2;
+        sum += 0.9 * expectimax(g, depth - 1, true);
+        g[c.y][c.x] = 4;
+        sum += 0.1 * expectimax(g, depth - 1, true);
+        g[c.y][c.x] = null;
+      }
+      return sum / limit;
+    }
+  }
+
+  function getBestMove(g) {
+    var bestDir = -1;
+    var bestVal = -Infinity;
+    for (var d = 0; d < 4; d++) {
+      var res = simulateMove(g, d);
+      if (!res.moved) continue;
+      var val = expectimax(res.grid, 4, false);
+      if (val > bestVal) { bestVal = val; bestDir = d; }
+    }
+    return bestDir;
+  }
+
+  function startAuto() {
+    if (autoPlaying) return;
+    if (gameOver) { init(); } // 若已结束，先开新局
+    autoPlaying = true;
+    autoBtn.textContent = '⏸ 停止';
+    // 自动合成：拼出 2048 视为成功并展示胜利，不再静默继续
+    keepPlaying = false;
+    var interval = Number(speedSelect.value) || 220;
+    autoTimer = setInterval(autoStep, interval);
+  }
+
+  function stopAuto() {
+    autoPlaying = false;
+    autoBtn.textContent = '🤖 自动合成';
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  }
+
+  function autoStep() {
+    if (gameOver) { stopAuto(); return; }
+    var best = getBestMove(gridToValues(grid));
+    if (best === -1) { stopAuto(); return; }
+    move(best);
+    // 拼出 2048 即成功：停止自动播放，展示胜利画面
+    if (won) {
+      stopAuto();
+      render();
+    }
   }
 
   function addRandomTile() {
@@ -709,6 +906,13 @@
   historyClose.addEventListener('click', hideHistory);
   historyModal.addEventListener('click', function (e) {
     if (e.target === historyModal) hideHistory();
+  });
+
+  autoBtn.addEventListener('click', function () {
+    if (autoPlaying) stopAuto(); else startAuto();
+  });
+  speedSelect.addEventListener('change', function () {
+    if (autoPlaying) { stopAuto(); startAuto(); }
   });
 
   applyTheme(loadTheme());
