@@ -1,0 +1,23 @@
+{
+  "V1": 12.0,
+  "R1": 4000.0,
+  "R2": 8000.0,
+  "RL": 4000.0,
+  "Voc_theory": 8.0,
+  "Rth_theory": 2666.6666666666665,
+  "Isc_theory": 0.003,
+  "VL_theory": 4.800000000000001,
+  "IL_theory": 0.0012000000000000001,
+  "Voc_sim": 8.0,
+  "Isc_sim": 0.003,
+  "Rth_sim": 2666.6666666666665,
+  "VL_original": 4.8,
+  "IL_original": 0.0012,
+  "VL_equivalent": 4.8,
+  "IL_equivalent": 0.0012,
+  "Voc_err": 0.0,
+  "Rth_err": 0.0,
+  "Isc_err": 0.0,
+  "VL_diff": 0.0,
+  "IL_diff": 0.0
+}

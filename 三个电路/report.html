@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PySpice 电路仿真实验报告</title>
+<style>
+:root{--brand:#1f618d;--brand2:#148f77;--ink:#1f2933;--soft:#f4f8fb;--line:#d7e3ee;}
+*{box-sizing:border-box;}
+body{margin:0;background:#eef3f7;color:var(--ink);
+ font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;line-height:1.85;font-size:16px;}
+.wrap{max-width:960px;margin:0 auto;padding:0 26px 80px;background:#fff;
+ box-shadow:0 0 24px rgba(31,97,141,.12);}
+h1{font-size:30px;color:#fff;background:linear-gradient(135deg,#1f618d,#148f77);
+ margin:0 -26px 26px;padding:46px 36px;border-radius:0 0 14px 14px;line-height:1.4;}
+h2{font-size:23px;color:var(--brand);border-left:6px solid var(--brand);
+ padding:8px 0 8px 14px;margin:46px 0 18px;background:var(--soft);border-radius:0 8px 8px 0;}
+h3{font-size:18.5px;color:var(--brand2);margin:30px 0 12px;
+ border-bottom:2px dotted var(--line);padding-bottom:6px;}
+h4{font-size:16.5px;color:#34495e;margin:22px 0 8px;}
+p{margin:12px 0;}
+blockquote{margin:16px 0;padding:12px 18px;background:#fdf6ec;border-left:5px solid #e8a33d;
+ border-radius:0 8px 8px 0;color:#5d4a1f;}
+blockquote p{margin:4px 0;}
+table{border-collapse:collapse;width:100%;margin:18px 0;font-size:15px;
+ box-shadow:0 1px 6px rgba(0,0,0,.08);border-radius:8px;overflow:hidden;}
+th{background:var(--brand);color:#fff;padding:10px 12px;text-align:left;font-weight:600;}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+tr:nth-child(even) td{background:#f7fbfd;}
+tr:last-child td{border-bottom:none;}
+code{background:#eef3f7;color:#c0392b;padding:2px 7px;border-radius:5px;
+ font-family:Consolas,"Courier New",monospace;font-size:14px;}
+pre{background:#26333f;color:#e8eef3;padding:18px 22px;border-radius:10px;overflow-x:auto;
+ line-height:1.6;}
+pre code{background:none;color:inherit;padding:0;font-size:14px;}
+img{display:block;max-width:100%;margin:20px auto;border:1px solid var(--line);
+ border-radius:10px;box-shadow:0 6px 18px rgba(31,52,73,.15);}
+a{color:var(--brand);text-decoration:none;}
+a:hover{text-decoration:underline;}
+ul,ol{padding-left:26px;}
+li{margin:6px 0;}
+hr{border:none;border-top:2px dashed var(--line);margin:36px 0;}
+strong{color:#b93b22;}
+h2 + ul a{font-weight:600;}
+</style></head>
+<body><div class="wrap">
+<h1 id="pyspice">PySpice 电路仿真实验报告（三个电路）</h1>
+<blockquote>
+<p>本报告用 <strong>Python + PySpice（调用 Ngspice 仿真引擎）</strong> 完成三个电路：
+① RC 低通滤波器　② 戴维南定理验证　③ NMOS 共源极放大器</p>
+<p>阅读本报告<strong>不需要任何基础</strong>：第一次出现的专业名词和符号都会用「大白话」解释。</p>
+</blockquote>
+<hr />
+<h2 id="_1">目录</h2>
+<ol>
+<li><a href="#一准备知识符号与名词速查表">准备知识：符号与名词速查表</a></li>
+<li><a href="#二实验环境与运行方法">实验环境与运行方法</a></li>
+<li><a href="#三任务rc-低通滤波器">任务① RC 低通滤波器</a></li>
+<li><a href="#四任务戴维南定理验证">任务② 戴维南定理验证</a></li>
+<li><a href="#五任务nmos-共源极放大器">任务③ NMOS 共源极放大器</a></li>
+<li><a href="#六实验总结">实验总结</a></li>
+<li><a href="#七文件清单">文件清单</a></li>
+</ol>
+<hr />
+<h2 id="_2">一、准备知识：符号与名词速查表</h2>
+<p>看后面的内容前，先花 2 分钟认识这些"零件"和"字母"：</p>
+<h3 id="1">1. 基本物理量与单位</h3>
+<table>
+<thead>
+<tr>
+<th>符号</th>
+<th>名称</th>
+<th>大白话解释</th>
+<th>常用单位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>V</strong></td>
+<td>电压 (Voltage)</td>
+<td>电的"压力"，类似水压。电池两端的电压推动电荷流动</td>
+<td>伏特 <strong>V</strong>（伏）、mV（毫伏，1mV = 0.001V）</td>
+</tr>
+<tr>
+<td><strong>I</strong></td>
+<td>电流 (Current)</td>
+<td>电荷流动的"流量"，类似水管里的水流量</td>
+<td>安培 <strong>A</strong>（安）、mA（毫安，1mA = 0.001A）</td>
+</tr>
+<tr>
+<td><strong>R</strong></td>
+<td>电阻 (Resistance)</td>
+<td>对电流的"阻碍"，类似水管变窄</td>
+<td>欧姆 <strong>Ω</strong>（欧）、kΩ（千欧，1kΩ = 1000Ω）</td>
+</tr>
+<tr>
+<td><strong>C</strong></td>
+<td>电容 (Capacitor)</td>
+<td>能储存电荷的"小水桶"，通交流、隔直流</td>
+<td>法拉 <strong>F</strong>、µF（微法，1µF = 百万分之一 F）</td>
+</tr>
+<tr>
+<td><strong>f</strong></td>
+<td>频率 (Frequency)</td>
+<td>信号每秒钟来回变化的次数</td>
+<td>赫兹 <strong>Hz</strong>（1kHz = 1000Hz，即每秒 1000 次）</td>
+</tr>
+<tr>
+<td><strong>T</strong></td>
+<td>周期 (Period)</td>
+<td>信号变化一次所用时间，T = 1/f</td>
+<td>秒 s、ms（毫秒，1ms = 0.001s）</td>
+</tr>
+<tr>
+<td><strong>GND</strong></td>
+<td>地 (Ground)</td>
+<td>电路中统一的 0V 参考点，符号是三条渐短横线</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>DC</strong></td>
+<td>直流电</td>
+<td>方向大小不变的电，如电池</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>AC</strong></td>
+<td>交流电</td>
+<td>大小方向周期性变化的电，如家里插座、正弦信号</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2">2. 三个元件长什么样</h3>
+<ul>
+<li><strong>电阻 R</strong>：锯齿状折线 —— 阻碍电流，两端电压 = I×R（欧姆定律）。</li>
+<li><strong>电容 C</strong>：两条平行短粗线 —— 存电荷；直流刚接通时充电，充满后相当于"断开"；交流信号可以"通过"。</li>
+<li><strong>NMOS 管（任务③用）</strong>：一种电子开关/放大元件，有 3 个主要引脚：</li>
+<li><strong>G（栅极 Gate）</strong>：控制端，像水龙头的把手。栅极加电压，就像拧开把手，电流变大。栅极绝缘，<strong>几乎不取电流</strong>。</li>
+<li><strong>D（漏极 Drain）</strong>：电流流入端。</li>
+<li><strong>S（源极 Source）</strong>：电流流出端。</li>
+<li>当 G 相对 S 的电压 <strong>V_GS</strong>（栅-源电压）超过门槛电压 <strong>V_th（阈值电压，约 1V）</strong> 时，管子开始导通。</li>
+<li><strong>B（衬底/Body）</strong>：本电路中与 S 接在一起接地。</li>
+</ul>
+<h3 id="3">3. 几种仿真分析是什么意思</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>SPICE 指令</th>
+<th>大白话</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>直流工作点</td>
+<td><strong>.op</strong></td>
+<td>给电路通上直流电，算出每个点的电压、每条支路的电流（"静态体检"）</td>
+</tr>
+<tr>
+<td>瞬态分析</td>
+<td><strong>.tran</strong></td>
+<td>让时间推进，观察电压随时间怎么变化（示波器看到的波形）</td>
+</tr>
+<tr>
+<td>交流分析</td>
+<td><strong>.ac</strong></td>
+<td>慢慢改变输入信号频率，看电路对不同频率的放大/衰减情况（画波特图）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_3">二、实验环境与运行方法</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>版本/说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>操作系统</td>
+<td>Windows</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.12（便携版，位于 <code>python312/</code>）</td>
+</tr>
+<tr>
+<td>PySpice</td>
+<td>1.5（用 Python 代码描述电路）</td>
+</tr>
+<tr>
+<td>Ngspice</td>
+<td>47（真正做数学计算的仿真引擎，被 PySpice 调用）</td>
+</tr>
+<tr>
+<td>numpy / scipy / matplotlib</td>
+<td>数据处理、曲线拟合、画图</td>
+</tr>
+</tbody>
+</table>
+<p>运行方法（在本文件夹打开终端）：</p>
+<pre><code class="language-bash">python task1_rc_lowpass.py      # 任务①，生成 3 张图 + results_1.json
+python task2_thevenin.py        # 任务②，生成 1 张图 + results_2.json
+python task3_mos_amplifier.py   # 任务③，生成 5 张图 + results_3.json
+</code></pre>
+<blockquote>
+<p>运行时出现的 <code>Unsupported Ngspice version 47</code> 只是版本名单提示，<strong>不影响仿真结果</strong>。</p>
+</blockquote>
+<hr />
+<h2 id="1-rc">三、任务① RC 低通滤波器</h2>
+<h3 id="31">3.1 这个电路是干什么的？</h3>
+<p><strong>滤波器</strong>就像一个"筛子"：<strong>低通滤波器</strong>允许低频信号顺利通过，把高频信号挡下来（衰减掉）。
+生活例子：音响调节低音时，就是让低通滤波器把高频杂音滤掉，只留低沉的声音。</p>
+<h3 id="32">3.2 自己画的电路图</h3>
+<p><img alt="RC低通滤波器电路图" src="circuit_1.png" /></p>
+<p>电路连接说明（从左往右看）：</p>
+<ol>
+<li>左边 <strong>Vin</strong> 是输入信号源；</li>
+<li>信号先经过电阻 <strong>R = 1 kΩ</strong>；</li>
+<li>R 右端的节点就是输出端 <strong>Vout</strong>；</li>
+<li>Vout 对地接了一个电容 <strong>C = 1 µF</strong>（电容另一端接 GND）。</li>
+</ol>
+<p><strong>参数（本题允许自定）</strong>：R = 1 kΩ，C = 1 µF；测试用方波 0↔5V、频率 100 Hz。</p>
+<h3 id="33">3.3 手算理论值（公式与计算过程）</h3>
+<h4 id="1-tau">（1）时间常数 τ（读作 "tau"）</h4>
+<p>τ 表示电容充放电的"快慢"。τ 越大，电容充得越慢，波形越平缓：</p>
+<pre><code>τ = R × C = 1000 Ω × 1×10⁻⁶ F = 1×10⁻³ s = 1.000 ms
+</code></pre>
+<p>物理意义：阶跃输入后，输出充到最终值 <strong>63.2%</strong> 所花的时间正好是 τ（约 3.16V）。</p>
+<h4 id="2-fccut-off-frequency-3db">（2）截止频率 fc（cut-off frequency，也叫 −3dB 频率）</h4>
+<p>信号频率低于 fc 能顺利通过；高于 fc 开始明显衰减。在 fc 处输出幅度降为输入的 <strong>1/√2 ≈ 70.7%</strong>：</p>
+<pre><code>        1              1
+fc = ─────── = ───────────────────── ≈ 159.15 Hz
+       2πRC     2π × 1000 × 1×10⁻⁶
+</code></pre>
+<h3 id="34-tran">3.4 仿真一：方波瞬态分析（.tran）</h3>
+<p>输入 100Hz 方波（在 0V 和 5V 之间跳变），观察电容两端电压 Vout：</p>
+<p><img alt="方波瞬态波形" src="transient_1.png" /></p>
+<p><strong>上图（图1-2）解读</strong>：</p>
+<ul>
+<li>蓝线是输入方波，一下子从 0 跳到 5V；</li>
+<li>红线是输出 Vout：电容不能突变，只能<strong>指数式充电</strong>慢慢上升；输入跳回 0V 后电容又慢慢放电；</li>
+<li>灰色虚线是 3.16V（63.2% 电平），红线到达它的时间就是一个 τ ≈ 1ms。</li>
+</ul>
+<p><strong>下图（图1-3）解读</strong>：仿真曲线（红）与理论公式 Vout(t) = 5×(1 − e^(−t/τ))（绿色点线）完全重合。</p>
+<h3 id="35-ac">3.5 仿真二：交流分析与波特图（.ac）</h3>
+<p>把输入换成幅度 1V 的正弦波，让频率从 1Hz 扫到 100kHz，记录输出/输入的幅度比和相位差，得到<strong>波特图（Bode Plot）</strong>：</p>
+<p><img alt="波特图" src="bode_1.png" /></p>
+<ul>
+<li><strong>幅频特性（上）</strong>：纵轴是增益（dB 分贝，幅度倍数的对数表示）。低频时 0dB（=1 倍，全部通过），过了 fc 后以 −20dB/十倍频的斜率下降；</li>
+<li><strong>相频特性（下）</strong>：输出相对输入有相位滞后，在 fc 处正好滞后 <strong>45°</strong>，高频趋近 90°。</li>
+<li>绿、紫两条竖线（手算 fc 与仿真 fc）完全重合。</li>
+</ul>
+<h3 id="36-vs">3.6 「手算 vs 仿真」对比表</h3>
+<table>
+<thead>
+<tr>
+<th>比较项目</th>
+<th>手算理论值</th>
+<th>PySpice 仿真值</th>
+<th>相对误差</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>时间常数 τ</td>
+<td><strong>1.000 ms</strong></td>
+<td><strong>1.000 ms</strong>（曲线拟合）</td>
+<td>0.00006%</td>
+</tr>
+<tr>
+<td>截止频率 fc</td>
+<td><strong>159.15 Hz</strong></td>
+<td><strong>159.15 Hz</strong>（−3dB 点）</td>
+<td>0.0015%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="37">3.7 结论</h3>
+<p>仿真值与手算值误差小于 0.002%，<strong>RC 低通滤波器的 τ 与 fc 公式得到验证</strong>；波特图清晰展示了"低频通过、高频衰减、截止点相位滞后 45°"的特性。</p>
+<hr />
+<h2 id="2_1">四、任务② 戴维南定理验证</h2>
+<h3 id="41">4.1 戴维南定理是什么？（大白话）</h3>
+<p>任何一个"里面有电源、有一堆电阻"的电路，只要你从<strong>两个接线端子（记为 A、B）</strong>看进去，
+对外界（比如接在 A、B 上的负载）来说，整个电路都可以<strong>偷偷换成</strong>一个更简单的等效电路，效果完全一样：</p>
+<pre><code>一个理想电压源 V_th  ＋  一个串联电阻 R_th
+</code></pre>
+<p>两个关键量怎么得到：</p>
+<ul>
+<li><strong>V_th（戴维南电压）= V_oc（开路电压 Open-Circuit voltage）</strong>：A、B 什么都不接时，两端的电压；</li>
+<li><strong>R_th（戴维南电阻）= V_oc / I_sc</strong>：其中 <strong>I_sc（短路电流 Short-Circuit current）</strong> 是把 A、B 直接用导线短接时，流过短接线的电流。</li>
+</ul>
+<h3 id="42">4.2 自定参数与电路图</h3>
+<p><strong>参数</strong>：V1 = 12V，R1 = 4 kΩ，R2 = 8 kΩ，外接负载 RL = 4 kΩ。</p>
+<p><img alt="戴维南电路与等效电路" src="circuit_2.png" /></p>
+<ul>
+<li>左图：原始含源二端网络，R1 与 R2 串联接在 12V 上，<strong>A、B 是输出端口</strong>，负载 RL 接在 A、B 之间（B 与 GND 等电位）；</li>
+<li>右图：用 V_th 串联 R_th 替换原网络，再接<strong>同一个</strong>负载 RL。</li>
+</ul>
+<h3 id="43">4.3 手算过程</h3>
+<h4 id="1-v_ocab">（1）开路电压 V_oc（A、B 不接任何东西）</h4>
+<p>R1、R2 串联分压：</p>
+<pre><code>            R2           8k
+V_oc = V1 × ────── = 12 × ──────── = 12 × ⅔ = 8.000 V
+           R1+R2        4k + 8k
+</code></pre>
+<h4 id="2-i_scab">（2）短路电流 I_sc（A、B 直接短接）</h4>
+<p>短接后 R2 被旁路（电流全走短接线），只剩 R1 接在 12V 上：</p>
+<pre><code>          V1     12
+I_sc  = ───── = ───── = 3.000 mA
+          R1     4k
+</code></pre>
+<h4 id="3-r_th">（3）戴维南电阻 R_th</h4>
+<p>把电压源"置零"（理想电压源用导线代替），从 A、B 看进去，R1 和 R2 变成<strong>并联</strong>（记作 R1∥R2）：</p>
+<pre><code>        R1 × R2    4k × 8k
+R_th = ───────── = ───────── = 2.667 kΩ
+        R1 + R2     12k
+
+验算：V_oc / I_sc = 8 / 3mA = 2.667 kΩ ✓
+</code></pre>
+<h4 id="4-rl-4k">（4）等效电路接上负载 RL = 4kΩ</h4>
+<pre><code>                 RL              4k
+V_L = V_oc × ─────────── = 8 × ───────── = 4.800 V
+              R_th + RL        2.667k + 4k
+
+        V_L     4.8
+I_L = ────── = ─────── = 1.200 mA
+         RL      4k
+</code></pre>
+<h3 id="44-pyspice">4.4 三次 PySpice 仿真</h3>
+<table>
+<thead>
+<tr>
+<th>仿真</th>
+<th>做法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① 测 V_oc</td>
+<td>端口悬空，.op 直接读 A 点电压</td>
+</tr>
+<tr>
+<td>② 测 I_sc</td>
+<td>A、B 间接一个 0V 电压源（相当于导线，同时充当电流表），读其电流</td>
+</tr>
+<tr>
+<td>③ 接负载对比</td>
+<td>原网络接 RL 与"V_th＋R_th 等效电路"接同一个 RL，分别读 V_L、I_L</td>
+</tr>
+</tbody>
+</table>
+<h3 id="45-vs">4.5 「手算 vs 仿真」对比表</h3>
+<p><strong>表 4-1　等效参数</strong></p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>手算值</th>
+<th>仿真值</th>
+<th>误差</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>开路电压 V_oc</td>
+<td>8.000 V</td>
+<td>8.000 V</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>短路电流 I_sc</td>
+<td>3.000 mA</td>
+<td>3.000 mA</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>戴维南电阻 R_th = V_oc/I_sc</td>
+<td>2.667 kΩ</td>
+<td>2.667 kΩ</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>表 4-2　接同一负载 RL = 4kΩ：原电路 vs 等效电路（仿真互验）</strong></p>
+<table>
+<thead>
+<tr>
+<th>负载上的量</th>
+<th>手算</th>
+<th>原网络仿真</th>
+<th>戴维南等效电路仿真</th>
+<th>三者差异</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>负载电压 V_L</td>
+<td>4.800 V</td>
+<td>4.800 V</td>
+<td>4.800 V</td>
+<td>0 V</td>
+</tr>
+<tr>
+<td>负载电流 I_L</td>
+<td>1.200 mA</td>
+<td>1.200 mA</td>
+<td>1.200 mA</td>
+<td>0 A</td>
+</tr>
+</tbody>
+</table>
+<h3 id="46">4.6 结论</h3>
+<p>开路、短路、接负载三种情况下，<strong>手算、原电路仿真、等效电路仿真三者结果完全一致</strong>：
+任意含源线性二端网络确实可以等效为一个电压源 V_th = 8V 串联一个电阻 R_th = 2.67kΩ，<strong>戴维南定理得到验证</strong>。</p>
+<hr />
+<h2 id="3-nmos">五、任务③ NMOS 共源极放大器</h2>
+<blockquote>
+<p>这个任务参数由题目固定，目的是验证一个晶体管放大电路的"静态工作点"和"放大倍数"。</p>
+</blockquote>
+<h3 id="51">5.1 电路图与每个元件的作用</h3>
+<p><img alt="NMOS共源放大器完整电路" src="circuit_3.png" /></p>
+<table>
+<thead>
+<tr>
+<th>元件/符号</th>
+<th>数值</th>
+<th>作用（大白话）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VDD</strong></td>
+<td>5 V</td>
+<td>整个电路的直流供电电源</td>
+</tr>
+<tr>
+<td><strong>Rg1</strong></td>
+<td>60 kΩ</td>
+<td>上偏置电阻，和 Rg2 一起把 G 极"预设"在一个合适电压</td>
+</tr>
+<tr>
+<td><strong>Rg2</strong></td>
+<td>40 kΩ</td>
+<td>下偏置电阻（分压偏置电路）</td>
+</tr>
+<tr>
+<td><strong>Rd</strong></td>
+<td>2 kΩ</td>
+<td>漏极电阻：把漏极电流的变化"翻译"成电压变化（输出）</td>
+</tr>
+<tr>
+<td><strong>Cb1</strong></td>
+<td>100 µF（视为足够大）</td>
+<td>输入耦合电容：让交流信号 vi 进入 G 极，同时<strong>挡住直流</strong>，不破坏偏置</td>
+</tr>
+<tr>
+<td><strong>T</strong></td>
+<td>NMOS</td>
+<td>放大核心，K=0.8 mA/V²，V_th=1V，λ=0.02/V</td>
+</tr>
+<tr>
+<td><strong>vi</strong></td>
+<td>10 mV、1 kHz 正弦波</td>
+<td>待放大的输入小信号</td>
+</tr>
+<tr>
+<td><strong>vo</strong></td>
+<td>输出端（D 极）</td>
+<td>放大后的输出信号</td>
+</tr>
+</tbody>
+</table>
+<p>模型参数含义：</p>
+<ul>
+<li><strong>K = 0.8 mA/V²</strong>：导电因子，反映管子"放大能力"的强弱；</li>
+<li><strong>V_th = 1 V</strong>：阈值电压，V_GS 超过它管子才导通；</li>
+<li><strong>λ = 0.02 /V</strong>：沟道长度调制系数，使管子输出电流随 V_DS 略微变化（等效一个并联输出电阻 ro）。</li>
+</ul>
+<p>分析放大器分两步走：<strong>先算直流（静态工作点），再算交流（小信号放大）</strong>。</p>
+<h3 id="52">5.2 第一步：直流通路与静态工作点手算</h3>
+<p><strong>静态工作点（Q 点）</strong>：没有输入信号（vi=0）时，电路各点的直流电压、电流，相当于放大器的"站立位置"。站得合适才能不失真地放大。</p>
+<p>求直流时，<strong>电容 Cb1 相当于开路（断开）</strong>，输入源被隔断：</p>
+<p><img alt="直流通路图" src="dc_path_3.png" /></p>
+<h4 id="1-v_g">（1）栅极电压 V_G</h4>
+<p>MOS 管栅极不取电流，所以 Rg1、Rg2 就是纯串联分压：</p>
+<pre><code>            Rg2          40k
+V_G = VDD × ──────── = 5 × ───────── = 2.000 V
+           Rg1+Rg2       60k+40k
+</code></pre>
+<p>源极 S 直接接地：V_S = 0，因此：</p>
+<pre><code>V_GS = V_G − V_S = 2.000 V
+过驱动电压 V_ov = V_GS − V_th = 2 − 1 = 1.000 V
+</code></pre>
+<h4 id="2-i_d-v_ds">（2）漏极电流 I_D 与漏源电压 V_DS</h4>
+<p>管子工作在饱和区时的电流公式（含 λ）：</p>
+<pre><code>I_D = K·V_ov²·(1 + λ·V_DS)
+V_DS = VDD − I_D·Rd          （Rd 上的压降使 D 极电压低于 VDD）
+</code></pre>
+<p>两式联立（代入 K=0.8mA/V²、V_ov=1V、λ=0.02、Rd=2kΩ）：</p>
+<pre><code>I_D = 0.8m × (1 + 0.02×(5 − 2000·I_D))
+    = 0.8m × (1.1 − 40·I_D)
+→  I_D = 0.8527 mA
+→  V_DS = 5 − 0.8527m × 2k = 3.2946 V
+</code></pre>
+<p>（若先忽略 λ 粗算：I_D ≈ K·V_ov² = 0.8 mA，V_DS ≈ 3.4V，结果很接近。）</p>
+<h4 id="3_1">（3）是否工作在饱和区？</h4>
+<p><strong>饱和区判断条件</strong>：</p>
+<pre><code>V_DS ≥ V_GS − V_th  （即 V_DS ≥ V_ov）
+3.2946 V ≥ 1.000 V   ✓  成立，余量 2.29V
+</code></pre>
+<p>✅ 管子确实工作在<strong>饱和区（恒流区/放大区）</strong>，可以正常放大。</p>
+<h3 id="53">5.3 第二步：小信号模型与增益手算</h3>
+<p>直流偏置确定后，把"直流电源短路、电容短路、MOS 管换成等效模型"，得到只看交流信号的<strong>小信号等效模型</strong>：</p>
+<p><img alt="小信号等效模型" src="small_signal_3.png" /></p>
+<ul>
+<li>输入端：G-S 之间绝缘开路；Rg1∥Rg2 = 60k∥40k = <strong>24 kΩ</strong> 接地；v_gs 就是栅源间的交流小电压（≈vi）。</li>
+<li>输出端：MOS 管等效为一个<strong>受 v_gs 控制的电流源 g_m·v_gs</strong>（栅极小电压"遥控"漏极大电流），并联管子输出电阻 r_o；漏极负载为 Rd。</li>
+</ul>
+<p>关键参数：</p>
+<h4 id="1-gmtransconductance">（1）跨导 gm（transconductance）</h4>
+<p>跨导 = "栅压变化 1V 能让漏极电流变化多少 A"，单位 S（西门子），数值小用 mS：</p>
+<pre><code>gm = 2K·V_ov = 2 × 0.8m × 1 = 1.600 mS
+</code></pre>
+<h4 id="2-ro">（2）管子输出电阻 ro</h4>
+<pre><code>ro = 1 / (λ·I_D) = 1 / (0.02 × 0.8527m) ≈ 58.64 kΩ
+</code></pre>
+<h4 id="3-avvoltage-gain">（3）电压增益 Av（voltage gain）</h4>
+<p>增益 = 输出信号比输入信号放大了多少倍。</p>
+<ul>
+<li>先忽略 ro（教材最常用近似）：</li>
+</ul>
+<pre><code>Av = −gm·Rd = −1.6m × 2k = −3.20 倍
+</code></pre>
+<ul>
+<li>计入 ro（教材口径，gm 不取 λ 修正）：</li>
+</ul>
+<pre><code>Rd∥ro = 2k∥58.64k ≈ 1.934 kΩ
+Av = −gm·(Rd∥ro) ≈ −3.09 倍
+</code></pre>
+<ul>
+<li>严格按 Shichman–Hodges 小信号定义（SPICE 的计算口径，gm 与输出电导都含 λ）：</li>
+</ul>
+<pre><code>gm_eff = 2K·V_ov·(1+λV_DS) = 1.6m × 1.0659 = 1.705 mS
+g_ds = K·V_ov²·λ = 16 µS （即 1/g_ds = 62.5 kΩ）
+Av = −gm_eff / (g_ds + 1/Rd) = −1.705m / (16µ + 500µ) = −3.305 倍
+</code></pre>
+<blockquote>
+<p><strong>负号"−"表示反相</strong>：输入往上走时输出往下走，相位相差 180°。</p>
+</blockquote>
+<h3 id="54-op">5.4 仿真验证一：直流工作点（.op）</h3>
+<p><strong>表 5-1　静态工作点「手算 vs 仿真」</strong></p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>含义</th>
+<th>手算值</th>
+<th>PySpice 仿真值</th>
+<th>相对误差</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V_GS</td>
+<td>栅-源电压</td>
+<td>2.0000 V</td>
+<td>2.0000 V</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>I_D</td>
+<td>漏极直流电流</td>
+<td>0.8527 mA</td>
+<td>0.8527 mA</td>
+<td>&lt; 0.0001%</td>
+</tr>
+<tr>
+<td>V_DS</td>
+<td>漏-源电压</td>
+<td>3.2946 V</td>
+<td>3.2946 V</td>
+<td>&lt; 0.0001%</td>
+</tr>
+<tr>
+<td>饱和区判断</td>
+<td>V_DS ≥ V_ov</td>
+<td>3.29 ≥ 1 ✓</td>
+<td>同样成立 ✓</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>SPICE 中 MOS 模型设置：<code>LEVEL=1, VTO=1V, KP=1.6mA/V², W/L=1, LAMBDA=0.02</code>，
+因 SPICE 公式为 I_D = 0.5·KP·(W/L)·V_ov²(1+λV_DS)，取 KP=2K=1.6mA/V² 即与题给 K 一致。</p>
+<h3 id="55-tran">5.5 仿真验证二：瞬态波形与实测增益（.tran）</h3>
+<p>输入 10mV、1kHz 正弦波，仿真 5 个周期：</p>
+<p><img alt="输入输出瞬态波形" src="waveforms_3.png" /></p>
+<ul>
+<li>上图：输入 vi，峰值 10mV；</li>
+<li>下图：输出端 D 的完整电压，围绕静态值 <strong>V_D ≈ 3.29V</strong> 上下摆动，摆幅约 <strong>66.1 mV（峰峰值）</strong>；</li>
+</ul>
+<p>去掉直流分量后把两者画在一起，反相关系一目了然：</p>
+<p><img alt="去偏置输入输出对比" src="waveforms_ac_3.png" /></p>
+<p>输入达到正峰值 +10mV 时，输出恰好到负峰值；输入到负峰值时输出到正峰值 —— <strong>典型的反相放大</strong>。</p>
+<p>从波形实测：</p>
+<pre><code>实测增益 = − 输出峰峰值 / 输入峰峰值 = −66.10mV / 20mV = −3.305 倍
+</code></pre>
+<h3 id="56-ac">5.6 仿真验证三：交流分析（.ac）旁证</h3>
+<p><img alt="放大器频响" src="bode_3.png" /></p>
+<p>在 1kHz 处：增益 <strong>−3.305 倍（约 10.4 dB）</strong>，相位 <strong>−180.0°</strong>，与瞬态实测完全一致；
+中频段（约 100Hz～1MHz）增益曲线平坦，说明 1kHz 输入正落在放大器的正常工作频段内（低频段受 Cb1 影响增益下降，高频段受寄生电容影响下降）。</p>
+<h3 id="57-vs">5.7 「手算 vs 仿真」增益对比表</h3>
+<p><strong>表 5-2　gm 与电压增益</strong></p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>手算</th>
+<th>仿真</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>跨导 gm</td>
+<td>1.600 mS（基础）／1.705 mS（含 λ 严格值）</td>
+<td>由增益反推 ≈ 1.709 mS</td>
+<td>严格值与仿真吻合</td>
+</tr>
+<tr>
+<td>电压增益 Av</td>
+<td>−3.20（忽略 ro）／−3.09（教材口径）／<strong>−3.305（严格模型）</strong></td>
+<td><strong>−3.305（瞬态实测）／−3.305（AC@1kHz）</strong></td>
+<td>严格手算与仿真误差 <strong>0.0007%</strong></td>
+</tr>
+<tr>
+<td>输出相位</td>
+<td>180°（反相）</td>
+<td>−179.996° ≈ −180°</td>
+<td>反相放大 ✓</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>说明：仿真结果比教材最简公式 −gm·Rd=−3.2 略大，是因为 SPICE 的严格小信号模型中 gm 本身带 (1+λV_DS) 因子（1.705mS &gt; 1.6mS），该影响略超过 ro 的分流作用。用同一严格公式手算得到 −3.305，与仿真完全一致。</p>
+</blockquote>
+<h3 id="58">5.8 结论</h3>
+<p>NMOS 共源放大器的<strong>静态工作点（V_GS=2V、I_D≈0.853mA、V_DS≈3.29V）手算与仿真完全一致，管子确认工作在饱和区</strong>；
+小信号增益手算 <strong>−3.3 倍</strong>与仿真 <strong>−3.305 倍</strong>吻合，输入输出波形<strong>相位相反（反相放大）</strong>，10mV 输入被放大到约 33mV 峰值输出。</p>
+<hr />
+<h2 id="_4">六、实验总结</h2>
+<table>
+<thead>
+<tr>
+<th>电路</th>
+<th>核心结论</th>
+<th>手算与仿真最大误差</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① RC 低通滤波</td>
+<td>τ=1ms、fc=159.15Hz；低频通过、高频衰减，fc 处相位滞后 45°</td>
+<td>&lt; 0.002%</td>
+</tr>
+<tr>
+<td>② 戴维南验证</td>
+<td>12V 网络等效为 8V 串 2.67kΩ；接 4kΩ 负载时 V_L=4.8V、I_L=1.2mA，原网络与等效电路结果完全相同</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>③ NMOS 共源放大</td>
+<td>V_GS=2V、I_D=0.853mA、V_DS=3.29V（饱和区）；反相增益约 −3.3 倍，输出摆幅 66mVpp</td>
+<td>&lt; 0.001%</td>
+</tr>
+</tbody>
+</table>
+<p>三个电路的理论公式全部被 PySpice/Ngspice 仿真数据证实。通过本次实验也验证了"先直流分析定工作点、再小信号分析算增益"的模拟电路标准分析方法。</p>
+<hr />
+<h2 id="_5">七、文件清单</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>task1_rc_lowpass.py</code></td>
+<td>任务①源码：瞬态分析、AC 波特图、τ/fc 拟合与对比</td>
+</tr>
+<tr>
+<td><code>task2_thevenin.py</code></td>
+<td>任务②源码：开路/短路/接负载三次仿真、原网络与等效电路互验</td>
+</tr>
+<tr>
+<td><code>task3_mos_amplifier.py</code></td>
+<td>任务③源码：自定义 NMOS 模型、OP、瞬态、AC 分析与原理图绘制</td>
+</tr>
+<tr>
+<td><code>circuit_1.png</code></td>
+<td>任务①电路图</td>
+</tr>
+<tr>
+<td><code>transient_1.png</code> / <code>bode_1.png</code></td>
+<td>任务①瞬态波形图 / 波特图</td>
+</tr>
+<tr>
+<td><code>circuit_2.png</code></td>
+<td>任务②原网络与戴维南等效电路图</td>
+</tr>
+<tr>
+<td><code>circuit_3.png</code> / <code>dc_path_3.png</code> / <code>small_signal_3.png</code></td>
+<td>任务③完整电路 / 直流通路 / 小信号等效模型</td>
+</tr>
+<tr>
+<td><code>waveforms_3.png</code> / <code>waveforms_ac_3.png</code> / <code>bode_3.png</code></td>
+<td>任务③瞬态波形 / 去偏置对比 / 频响曲线</td>
+</tr>
+<tr>
+<td><code>results_1.json</code> / <code>results_2.json</code> / <code>results_3.json</code></td>
+<td>三个任务的全部数值数据</td>
+</tr>
+</tbody>
+</table>
+</div></body></html>
