@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<script>
+  // 提前应用主题，避免刷新时闪烁
+  (function () {
+    try {
+      var t = localStorage.getItem('theme-2048') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>2048</title>
+<style>
+  :root {
+    --bg: #faf8ef;
+    --text: #776e65;
+    --score-box-bg: #bbada0;
+    --score-box-label: #eee4da;
+    --board-bg: #bbada0;
+    --grid-cell: rgba(238, 228, 218, 0.35);
+    --tile-base-bg: #3c3a32;
+    --tile-base-text: #f9f6f2;
+    --tile-2-bg: #eee4da; --tile-2-text: #776e65;
+    --tile-4-bg: #ede0c8; --tile-4-text: #776e65;
+    --tile-8-bg: #f2b179;
+    --tile-16-bg: #f59563;
+    --tile-32-bg: #f67c5f;
+    --tile-64-bg: #f65e3b;
+    --tile-128-bg: #edcf72;
+    --tile-256-bg: #edcc61;
+    --tile-512-bg: #edc850;
+    --tile-1024-bg: #edc53f;
+    --tile-2048-bg: #edc22e;
+    --btn-bg: #8f7a66;
+    --btn-hover: #9f8b77;
+    --btn-text: #f9f6f2;
+    --overlay-bg: rgba(238, 228, 218, 0.78);
+    --overlay-win: rgba(237, 194, 46, 0.55);
+    --hint: #9a918a;
+    --score-addition: rgba(119, 110, 101, 0.9);
+    --modal-bg: rgba(23, 22, 18, 0.55);
+    --modal-panel: #fff;
+    --modal-text: #776e65;
+    --modal-border: #eee4da;
+  }
+  [data-theme="dark"] {
+    --bg: #1a1a2e;
+    --text: #e8e8f0;
+    --score-box-bg: #16213e;
+    --score-box-label: #8b94b8;
+    --board-bg: #16213e;
+    --grid-cell: rgba(255, 255, 255, 0.08);
+    --tile-base-bg: #2a2a44;
+    --tile-base-text: #f0f0f8;
+    --tile-2-bg: #2a2a44; --tile-2-text: #e8e8f0;
+    --tile-4-bg: #2f3a5e; --tile-4-text: #e8e8f0;
+    --tile-8-bg: #3b5bbd;
+    --tile-16-bg: #4a4fa8;
+    --tile-32-bg: #5a3fa0;
+    --tile-64-bg: #6e3b8a;
+    --tile-128-bg: #1e88e5;
+    --tile-256-bg: #00acc1;
+    --tile-512-bg: #26a69a;
+    --tile-1024-bg: #43a047;
+    --tile-2048-bg: #f9a825;
+    --btn-bg: #4a4fa8;
+    --btn-hover: #5a5fc0;
+    --btn-text: #f0f0f8;
+    --overlay-bg: rgba(15, 15, 30, 0.82);
+    --overlay-win: rgba(249, 168, 37, 0.45);
+    --hint: #7a7f9a;
+    --score-addition: rgba(232, 232, 240, 0.9);
+    --modal-bg: rgba(0, 0, 0, 0.6);
+    --modal-panel: #1f2340;
+    --modal-text: #e8e8f0;
+    --modal-border: #2f3a5e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Clear Sans", "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px 0;
+    transition: background .25s ease, color .25s ease;
+  }
+  .container { width: min(92vw, 460px); }
+
+  header { display: flex; justify-content: space-between; align-items: center; }
+  h1 { font-size: 60px; font-weight: 800; }
+  .scores { display: flex; gap: 8px; }
+  .score-box {
+    position: relative;
+    background: var(--score-box-bg);
+    border-radius: 6px;
+    padding: 8px 14px;
+    text-align: center;
+    color: #fff;
+    min-width: 76px;
+  }
+  .score-box .label { display: block; font-size: 12px; color: var(--score-box-label); }
+  .score-box .value { font-size: 22px; font-weight: 700; }
+  .score-addition {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    font-size: 20px; font-weight: 700;
+    color: var(--score-addition);
+    animation: scoreUp 0.6s ease-in forwards;
+    pointer-events: none;
+  }
+  @keyframes scoreUp {
+    from { top: 0; opacity: 1; }
+    to   { top: -28px; opacity: 0; }
+  }
+
+  .sub-header { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 16px; }
+  .sub-header p { font-size: 15px; }
+  .sub-header .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  button {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s ease;
+  }
+  button:hover { background: var(--btn-hover); }
+  select {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .board {
+    position: relative;
+    background: var(--board-bg);
+    border-radius: 8px;
+    width: 100%;
+    aspect-ratio: 1;
+    touch-action: none;
+  }
+  .grid-bg {
+    position: absolute; inset: 0;
+    display: grid;
+    grid-template: repeat(4, 1fr) / repeat(4, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+  .grid-bg div { background: var(--grid-cell); border-radius: 6px; }
+
+  #tiles { position: absolute; inset: 0; }
+  .tile {
+    position: absolute;
+    top: 0; left: 0;
+    transition: transform 100ms ease-in-out;
+    z-index: 2;
+  }
+  .tile-merged-outer { z-index: 3; }
+  .tile-inner {
+    width: 100%; height: 100%;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    background: var(--tile-base-bg);
+    color: var(--tile-base-text);
+  }
+  .tile-2    { background: var(--tile-2-bg);    color: var(--tile-2-text); }
+  .tile-4    { background: var(--tile-4-bg);    color: var(--tile-4-text); }
+  .tile-8    { background: var(--tile-8-bg); }
+  .tile-16   { background: var(--tile-16-bg); }
+  .tile-32   { background: var(--tile-32-bg); }
+  .tile-64   { background: var(--tile-64-bg); }
+  .tile-128  { background: var(--tile-128-bg); }
+  .tile-256  { background: var(--tile-256-bg); }
+  .tile-512  { background: var(--tile-512-bg); }
+  .tile-1024 { background: var(--tile-1024-bg); }
+  .tile-2048 { background: var(--tile-2048-bg); }
+
+  .tile-new    { animation: appear 200ms ease 100ms backwards; }
+  .tile-merged { animation: pop 200ms ease 100ms backwards; }
+  @keyframes appear { from { transform: scale(0); } to { transform: scale(1); } }
+  @keyframes pop { 0% { transform: scale(0); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+  .overlay {
+    position: absolute; inset: 0;
+    background: var(--overlay-bg);
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    z-index: 10;
+    animation: fadeIn 400ms ease;
+  }
+  .overlay.win { background: var(--overlay-win); }
+  .overlay.hidden { display: none; }
+  .overlay-message { font-size: 42px; font-weight: 800; }
+  .overlay-buttons { display: flex; gap: 10px; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .hint { margin-top: 14px; font-size: 13px; color: var(--hint); text-align: center; }
+
+  /* 历史记录弹窗 */
+  .modal {
+    position: fixed; inset: 0;
+    background: var(--modal-bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+    padding: 20px;
+    animation: fadeIn 300ms ease;
+  }
+  .modal.hidden { display: none; }
+  .modal-panel {
+    background: var(--modal-panel);
+    color: var(--modal-text);
+    border-radius: 10px;
+    padding: 22px 20px;
+    width: min(92vw, 420px);
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .modal-head h3 { font-size: 20px; }
+  .modal-close {
+    padding: 4px 12px; font-size: 18px; line-height: 1;
+    background: transparent; color: var(--modal-text);
+  }
+  .modal-close:hover { background: rgba(127,127,127,0.15); }
+  .history-list { overflow-y: auto; list-style: none; }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 6px;
+    border-bottom: 1px solid var(--modal-border);
+    font-size: 14px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-index { color: var(--hint); width: 28px; }
+  .history-score { font-weight: 700; min-width: 60px; text-align: right; }
+  .history-meta { color: var(--hint); font-size: 12px; text-align: right; }
+  .history-empty { text-align: center; color: var(--hint); padding: 30px 0; }
+
+  @media (max-width: 420px) {
+    h1 { font-size: 42px; }
+    .score-box { min-width: 58px; padding: 6px 10px; }
+    .score-box .value { font-size: 18px; }
+    button { padding: 8px 12px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>2048</h1>
+      <div class="scores">
+        <div class="score-box" id="score-box">
+          <span class="label">分数</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="score-box">
+          <span class="label">最高分</span>
+          <span class="value" id="best">0</span>
+        </div>
+        <div class="score-box">
+          <span class="label">局数</span>
+          <span class="value" id="plays">0</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="sub-header">
+      <p>合并相同数字，拼出 <strong>2048</strong>！</p>
+      <div class="actions">
+        <button id="theme-toggle">🌙 深色</button>
+        <button id="history-btn">📜 历史</button>
+        <button id="auto-btn">🤖 自动合成</button>
+        <select id="speed-select" title="速度">
+          <option value="400">慢</option>
+          <option value="220" selected>中</option>
+          <option value="100">快</option>
+        </select>
+        <button id="new-game">新游戏</button>
+      </div>
+    </div>
+
+    <div class="board" id="board">
+      <div class="grid-bg">
+        <div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div>
+      </div>
+      <div id="tiles"></div>
+      <div class="overlay hidden" id="overlay">
+        <p class="overlay-message" id="overlay-message"></p>
+        <div class="overlay-buttons">
+          <button id="overlay-keep">继续游戏</button>
+          <button id="overlay-retry">再来一局</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="hint">电脑：方向键 / WASD 移动 &nbsp;·&nbsp; 手机：滑动屏幕</p>
+  </div>
+
+  <div class="modal hidden" id="history-modal">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3>最近 10 次记录</h3>
+        <button class="modal-close" id="history-close">✕</button>
+      </div>
+      <ul class="history-list" id="history-list"></ul>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var SIZE = 4;
+  var GAP = 10;
+  var grid, score, best, plays, won, keepPlaying, gameOver;
+  var gameStartTime, recorded;
+
+  var boardEl = document.getElementById('board');
+  var tilesEl = document.getElementById('tiles');
+  var scoreEl = document.getElementById('score');
+  var bestEl = document.getElementById('best');
+  var playsEl = document.getElementById('plays');
+  var scoreBoxEl = document.getElementById('score-box');
+  var overlayEl = document.getElementById('overlay');
+  var overlayMsgEl = document.getElementById('overlay-message');
+  var keepBtn = document.getElementById('overlay-keep');
+  var themeBtn = document.getElementById('theme-toggle');
+  var historyBtn = document.getElementById('history-btn');
+  var historyModal = document.getElementById('history-modal');
+  var historyList = document.getElementById('history-list');
+  var historyClose = document.getElementById('history-close');
+  var autoBtn = document.getElementById('auto-btn');
+  var speedSelect = document.getElementById('speed-select');
+
+  // 方向向量：0 上, 1 右, 2 下, 3 左
+  var vectors = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 }
+  ];
+
+  function emptyGrid() {
+    var g = [];
+    for (var y = 0; y < SIZE; y++) {
+      g.push([]);
+      for (var x = 0; x < SIZE; x++) g[y].push(null);
+    }
+    return g;
+  }
+
+  function eachTile(fn) {
+    for (var y = 0; y < SIZE; y++)
+      for (var x = 0; x < SIZE; x++)
+        if (grid[y][x]) fn(grid[y][x]);
+  }
+
+  function withinBounds(x, y) {
+    return x >= 0 && x < SIZE && y >= 0 && y < SIZE;
+  }
+
+  function loadBest() {
+    try { return Number(localStorage.getItem('best-2048')) || 0; }
+    catch (e) { return 0; }
+  }
+
+  function saveBest() {
+    try { localStorage.setItem('best-2048', String(best)); } catch (e) {}
+  }
+
+  function loadPlays() {
+    try { return Number(localStorage.getItem('plays-2048')) || 0; }
+    catch (e) { return 0; }
+  }
+
+  function savePlays() {
+    try { localStorage.setItem('plays-2048', String(plays)); } catch (e) {}
+  }
+
+  // ---------- 主题 ----------
+  function loadTheme() {
+    try { return localStorage.getItem('theme-2048') || 'light'; }
+    catch (e) { return 'light'; }
+  }
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = theme === 'dark' ? '☀️ 浅色' : '🌙 深色';
+    try { localStorage.setItem('theme-2048', theme); } catch (e) {}
+  }
+  function toggleTheme() {
+    var cur = document.documentElement.getAttribute('data-theme') || 'light';
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+
+  // ---------- 历史记录 ----------
+  function loadHistory() {
+    try {
+      var raw = localStorage.getItem('history-2048');
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function saveHistory(arr) {
+    try { localStorage.setItem('history-2048', JSON.stringify(arr)); } catch (e) {}
+  }
+  function recordGame() {
+    var duration = gameStartTime ? Date.now() - gameStartTime : 0;
+    var history = loadHistory();
+    if (!recorded) {
+      history.unshift({
+        score: score,
+        duration: duration,
+        date: Date.now()
+      });
+      if (history.length > 10) history = history.slice(0, 10);
+      recorded = true;
+    } else if (history.length) {
+      // 同一局继续到结束（如自动合成越过 2048），更新为最终分数与时长
+      history[0].score = score;
+      history[0].duration = duration;
+    }
+    saveHistory(history);
+  }
+  function formatDuration(ms) {
+    var s = Math.floor(ms / 1000);
+    var m = Math.floor(s / 60);
+    s = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function formatDate(ts) {
+    var d = new Date(ts);
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+           ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function renderHistory() {
+    var history = loadHistory();
+    historyList.innerHTML = '';
+    if (!history.length) {
+      var empty = document.createElement('li');
+      empty.className = 'history-empty';
+      empty.textContent = '暂无记录，开始你的第一局吧！';
+      historyList.appendChild(empty);
+      return;
+    }
+    history.forEach(function (item, i) {
+      var li = document.createElement('li');
+      li.className = 'history-item';
+      li.innerHTML =
+        '<span class="history-index">#' + (i + 1) + '</span>' +
+        '<span class="history-score">' + item.score + ' 分</span>' +
+        '<span class="history-meta">' + formatDuration(item.duration) + '<br>' + formatDate(item.date) + '</span>';
+      historyList.appendChild(li);
+    });
+  }
+  function showHistory() {
+    renderHistory();
+    historyModal.classList.remove('hidden');
+  }
+  function hideHistory() {
+    historyModal.classList.add('hidden');
+  }
+
+  // ============ 自动合成 AI ============
+  var autoTimer = null;
+  var autoPlaying = false;
+
+  // 将游戏 grid（tile 对象）转为纯数值网格，供 AI 模拟使用
+  function gridToValues(g) {
+    var v = [];
+    for (var y = 0; y < SIZE; y++) {
+      v.push([]);
+      for (var x = 0; x < SIZE; x++) v[y].push(g[y][x] ? g[y][x].value : null);
+    }
+    return v;
+  }
+
+  function cloneValues(g) {
+    var ng = [];
+    for (var y = 0; y < SIZE; y++) {
+      ng.push([]);
+      for (var x = 0; x < SIZE; x++) ng[y].push(g[y][x]);
+    }
+    return ng;
+  }
+
+  function simFindFarthest(x, y, vector, g) {
+    var prev = { x: x, y: y };
+    var cur = { x: x + vector.x, y: y + vector.y };
+    while (cur.x >= 0 && cur.x < SIZE && cur.y >= 0 && cur.y < SIZE && g[cur.y][cur.x] === null) {
+      prev = cur;
+      cur = { x: cur.x + vector.x, y: cur.y + vector.y };
+    }
+    return { farthest: prev, next: cur };
+  }
+
+  // 纯函数模拟一次移动，返回新网格、是否移动、本次得分
+  function simulateMove(g, dir) {
+    var vector = vectors[dir];
+    var trav = buildTraversals(vector);
+    var ng = cloneValues(g);
+    var moved = false;
+    var gained = 0;
+    var merged = [];
+    for (var yy = 0; yy < SIZE; yy++) {
+      merged.push([]);
+      for (var xx = 0; xx < SIZE; xx++) merged[yy].push(false);
+    }
+    trav.x.forEach(function (x) {
+      trav.y.forEach(function (y) {
+        var v = ng[y][x];
+        if (v === null) return;
+        var pos = simFindFarthest(x, y, vector, ng);
+        var nextIn = pos.next;
+        if (nextIn.x >= 0 && nextIn.x < SIZE && nextIn.y >= 0 && nextIn.y < SIZE &&
+            ng[nextIn.y][nextIn.x] !== null && ng[nextIn.y][nextIn.x] === v && !merged[nextIn.y][nextIn.x]) {
+          ng[nextIn.y][nextIn.x] = v * 2;
+          ng[y][x] = null;
+          merged[nextIn.y][nextIn.x] = true;
+          gained += v * 2;
+          moved = true;
+        } else if (pos.farthest.x !== x || pos.farthest.y !== y) {
+          ng[pos.farthest.y][pos.farthest.x] = v;
+          ng[y][x] = null;
+          moved = true;
+        }
+      });
+    });
+    return { grid: ng, moved: moved, score: gained };
+  }
+
+  // 蛇形加权矩阵（2048教学的"角落+蛇形"策略：最大块锚定左下角，沿蛇形递增排列）
+  // 数值越大的位置越倾向于放更大的方块，形成从左下角出发的蛇形递增链
+  var WEIGHTS = [
+    [ 4,  3,  2,  1],
+    [ 5,  6,  7,  8],
+    [12, 11, 10,  9],
+    [13, 14, 15, 16]
+  ];
+
+  // 启发式评估：蛇形加权分（原始值×权重）+ 空格数 + 平滑度
+  // 经参数调优：empty=20, smoothness=1.0 时 2048 成功率最高
+  function evaluate(g) {
+    var empty = 0;
+    var weighted = 0;
+    var smoothness = 0;
+
+    for (var y = 0; y < SIZE; y++) {
+      for (var x = 0; x < SIZE; x++) {
+        var v = g[y][x];
+        if (v === null) { empty++; continue; }
+        weighted += v * WEIGHTS[y][x];
+        if (x + 1 < SIZE && g[y][x + 1] !== null) smoothness -= Math.abs(Math.log2(v) - Math.log2(g[y][x + 1]));
+        if (y + 1 < SIZE && g[y + 1][x] !== null) smoothness -= Math.abs(Math.log2(v) - Math.log2(g[y + 1][x]));
+      }
+    }
+
+    return weighted + empty * 20 + smoothness * 1.0;
+  }
+
+  // expectimax：玩家节点选最优方向，机会节点按 2(0.9)/4(0.1) 对空格求期望
+  function expectimax(g, depth, isPlayer) {
+    if (depth === 0) return evaluate(g);
+    if (isPlayer) {
+      var best = -Infinity;
+      var any = false;
+      for (var d = 0; d < 4; d++) {
+        var res = simulateMove(g, d);
+        if (!res.moved) continue;
+        any = true;
+        var val = expectimax(res.grid, depth - 1, false);
+        if (val > best) best = val;
+      }
+      return any ? best : evaluate(g);
+    } else {
+      var empty = [];
+      for (var y = 0; y < SIZE; y++)
+        for (var x = 0; x < SIZE; x++)
+          if (g[y][x] === null) empty.push({ x: x, y: y });
+      if (!empty.length) return evaluate(g);
+      // 空格较多时抽样，避免过慢
+      var limit = Math.min(empty.length, 6);
+      var sum = 0;
+      for (var i = 0; i < limit; i++) {
+        var c = empty[i];
+        g[c.y][c.x] = 2;
+        sum += 0.9 * expectimax(g, depth - 1, true);
+        g[c.y][c.x] = 4;
+        sum += 0.1 * expectimax(g, depth - 1, true);
+        g[c.y][c.x] = null;
+      }
+      return sum / limit;
+    }
+  }
+
+  function getBestMove(g) {
+    var bestDir = -1;
+    var bestVal = -Infinity;
+    for (var d = 0; d < 4; d++) {
+      var res = simulateMove(g, d);
+      if (!res.moved) continue;
+      var val = expectimax(res.grid, 4, false);
+      if (val > bestVal) { bestVal = val; bestDir = d; }
+    }
+    return bestDir;
+  }
+
+  function startAuto() {
+    if (autoPlaying) return;
+    if (gameOver) { init(); } // 若已结束，先开新局
+    autoPlaying = true;
+    autoBtn.textContent = '⏸ 停止';
+    // 自动合成：拼出 2048 视为成功并展示胜利，不再静默继续
+    keepPlaying = false;
+    var interval = Number(speedSelect.value) || 220;
+    autoTimer = setInterval(autoStep, interval);
+  }
+
+  function stopAuto() {
+    autoPlaying = false;
+    autoBtn.textContent = '🤖 自动合成';
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  }
+
+  function autoStep() {
+    if (gameOver) { stopAuto(); return; }
+    var best = getBestMove(gridToValues(grid));
+    if (best === -1) { stopAuto(); return; }
+    move(best);
+    // 拼出 2048 即成功：停止自动播放，展示胜利画面
+    if (won) {
+      stopAuto();
+      render();
+    }
+  }
+
+  function addRandomTile() {
+    var empty = [];
+    for (var y = 0; y < SIZE; y++)
+      for (var x = 0; x < SIZE; x++)
+        if (!grid[y][x]) empty.push({ x: x, y: y });
+    if (!empty.length) return;
+    var cell = empty[Math.floor(Math.random() * empty.length)];
+    grid[cell.y][cell.x] = {
+      value: Math.random() < 0.9 ? 2 : 4,
+      x: cell.x,
+      y: cell.y,
+      previousPosition: null,
+      mergedFrom: null
+    };
+  }
+
+  // ---------- 移动逻辑 ----------
+
+  function buildTraversals(vector) {
+    var xs = [0, 1, 2, 3], ys = [0, 1, 2, 3];
+    if (vector.x === 1) xs.reverse();
+    if (vector.y === 1) ys.reverse();
+    return { x: xs, y: ys };
+  }
+
+  function findFarthestPosition(x, y, vector) {
+    var prev = { x: x, y: y };
+    var cur = { x: x + vector.x, y: y + vector.y };
+    while (withinBounds(cur.x, cur.y) && !grid[cur.y][cur.x]) {
+      prev = cur;
+      cur = { x: cur.x + vector.x, y: cur.y + vector.y };
+    }
+    return { farthest: prev, next: cur };
+  }
+
+  function move(dir) {
+    if (gameOver || (won && !keepPlaying)) return;
+
+    var vector = vectors[dir];
+    var trav = buildTraversals(vector);
+    var moved = false;
+    var gained = 0;
+
+    eachTile(function (t) {
+      t.mergedFrom = null;
+      t.previousPosition = { x: t.x, y: t.y };
+    });
+
+    trav.x.forEach(function (x) {
+      trav.y.forEach(function (y) {
+        var tile = grid[y][x];
+        if (!tile) return;
+
+        var pos = findFarthestPosition(x, y, vector);
+        var nextTile = withinBounds(pos.next.x, pos.next.y)
+          ? grid[pos.next.y][pos.next.x]
+          : null;
+
+        if (nextTile && nextTile.value === tile.value && !nextTile.mergedFrom) {
+          // 合并：生成新方块，两个来源方块滑入后消失
+          var merged = {
+            value: tile.value * 2,
+            x: pos.next.x,
+            y: pos.next.y,
+            previousPosition: null,
+            mergedFrom: [tile, nextTile]
+          };
+          grid[y][x] = null;
+          grid[pos.next.y][pos.next.x] = merged;
+          tile.x = pos.next.x;
+          tile.y = pos.next.y;
+          gained += merged.value;
+          if (merged.value === 2048) { won = true; recordGame(); }
+          moved = true;
+        } else if (pos.farthest.x !== x || pos.farthest.y !== y) {
+          // 滑动
+          grid[y][x] = null;
+          grid[pos.farthest.y][pos.farthest.x] = tile;
+          tile.x = pos.farthest.x;
+          tile.y = pos.farthest.y;
+          moved = true;
+        }
+      });
+    });
+
+    if (moved) {
+      score += gained;
+      if (gained > 0) showScoreAddition(gained);
+      if (score > best) {
+        best = score;
+        saveBest();
+      }
+      addRandomTile();
+      if (!movesAvailable()) { gameOver = true; recordGame(); }
+      render();
+    }
+  }
+
+  function movesAvailable() {
+    for (var y = 0; y < SIZE; y++) {
+      for (var x = 0; x < SIZE; x++) {
+        if (!grid[y][x]) return true;
+        var v = grid[y][x].value;
+        if (x + 1 < SIZE && grid[y][x + 1] && grid[y][x + 1].value === v) return true;
+        if (y + 1 < SIZE && grid[y + 1][x] && grid[y + 1][x].value === v) return true;
+      }
+    }
+    return false;
+  }
+
+  // ---------- 渲染 ----------
+
+  function metrics() {
+    var width = boardEl.clientWidth;
+    return { cell: (width - GAP * (SIZE + 1)) / SIZE, gap: GAP };
+  }
+
+  function translate(x, y, cell, gap) {
+    return 'translate(' + (gap + x * (cell + gap)) + 'px, ' +
+                          (gap + y * (cell + gap)) + 'px)';
+  }
+
+  function valueClass(v) {
+    return v <= 2048 ? 'tile-' + v : '';
+  }
+
+  function addTileElement(tile, cell, gap) {
+    var el = document.createElement('div');
+    el.className = 'tile' + (tile.mergedFrom ? ' tile-merged-outer' : '');
+    el.style.width = cell + 'px';
+    el.style.height = cell + 'px';
+
+    var start = tile.previousPosition || tile;
+    el.style.transform = translate(start.x, start.y, cell, gap);
+
+    var inner = document.createElement('div');
+    inner.className = 'tile-inner ' + valueClass(tile.value);
+    inner.textContent = tile.value;
+    var digits = String(tile.value).length;
+    var ratio = digits <= 2 ? 0.45 : digits === 3 ? 0.35 : 0.27;
+    inner.style.fontSize = Math.floor(cell * ratio) + 'px';
+
+    if (tile.mergedFrom) {
+      inner.classList.add('tile-merged');
+      tile.mergedFrom.forEach(function (s) { addTileElement(s, cell, gap); });
+    } else if (!tile.previousPosition) {
+      inner.classList.add('tile-new');
+    }
+
+    el.appendChild(inner);
+    tilesEl.appendChild(el);
+
+    if (tile.previousPosition) {
+      void el.offsetWidth; // 强制回流，让滑动过渡生效
+      el.style.transform = translate(tile.x, tile.y, cell, gap);
+    }
+  }
+
+  function render() {
+    tilesEl.innerHTML = '';
+    var m = metrics();
+    eachTile(function (t) { addTileElement(t, m.cell, m.gap); });
+
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+    playsEl.textContent = plays;
+
+    if (won && !keepPlaying) {
+      showOverlay('你赢了！', true);
+    } else if (gameOver) {
+      showOverlay('游戏结束', false);
+    } else {
+      overlayEl.classList.add('hidden');
+    }
+  }
+
+  function showOverlay(msg, canKeepPlaying) {
+    overlayMsgEl.textContent = msg;
+    overlayEl.classList.toggle('win', canKeepPlaying);
+    keepBtn.style.display = canKeepPlaying ? '' : 'none';
+    overlayEl.classList.remove('hidden');
+  }
+
+  function showScoreAddition(points) {
+    var el = document.createElement('div');
+    el.className = 'score-addition';
+    el.textContent = '+' + points;
+    scoreBoxEl.appendChild(el);
+    setTimeout(function () { el.remove(); }, 600);
+  }
+
+  // ---------- 输入 ----------
+
+  function init() {
+    grid = emptyGrid();
+    score = 0;
+    won = false;
+    keepPlaying = false;
+    gameOver = false;
+    recorded = false;
+    gameStartTime = Date.now();
+    best = loadBest();
+    plays += 1;
+    savePlays();
+    addRandomTile();
+    addRandomTile();
+    render();
+  }
+
+  var keyMap = {
+    ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3,
+    w: 0, d: 1, s: 2, a: 3, W: 0, D: 1, S: 2, A: 3
+  };
+  document.addEventListener('keydown', function (e) {
+    var dir = keyMap[e.key];
+    if (dir === undefined) return;
+    e.preventDefault();
+    move(dir);
+  });
+
+  var touchStart = null;
+  boardEl.addEventListener('touchstart', function (e) {
+    touchStart = e.touches[0];
+  }, { passive: true });
+  boardEl.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+  }, { passive: false });
+  boardEl.addEventListener('touchend', function (e) {
+    if (!touchStart) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - touchStart.clientX;
+    var dy = t.clientY - touchStart.clientY;
+    touchStart = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+  });
+
+  document.getElementById('new-game').addEventListener('click', init);
+  document.getElementById('overlay-retry').addEventListener('click', init);
+  keepBtn.addEventListener('click', function () {
+    keepPlaying = true;
+    render();
+  });
+  window.addEventListener('resize', render);
+
+  themeBtn.addEventListener('click', toggleTheme);
+  historyBtn.addEventListener('click', showHistory);
+  historyClose.addEventListener('click', hideHistory);
+  historyModal.addEventListener('click', function (e) {
+    if (e.target === historyModal) hideHistory();
+  });
+
+  autoBtn.addEventListener('click', function () {
+    if (autoPlaying) stopAuto(); else startAuto();
+  });
+  speedSelect.addEventListener('change', function () {
+    if (autoPlaying) { stopAuto(); startAuto(); }
+  });
+
+  applyTheme(loadTheme());
+  plays = loadPlays();
+  init();
+})();
+</script>
+</body>
+</html>
