@@ -13,3 +13,15 @@ cd；打开或更改目录ls；列目录中文件mkdir；创建目录
 5.https://www.bilibili.com/video/BV1gp411f7qF/?spm_id_from=333.337.search-card.all.click&vd_source=2e1bc6d201fbd9751a91255ed74d0e38 这个网址是2048教学，
 你参考他进行自动功能的改进合成2048才算成功，参考把最大块锚定在角落、沿蛇形递增排列的思路
 测试6次后才出现第一次失败
+<img width="3120" height="4160" alt="IMG20261008151621" src="https://github.com/user-attachments/assets/6dcfe161-d3e6-4ed1-9bfa-310ee4c0f8ed" />
+<img width="3120" height="4160" alt="IMG20261008151557" src="https://github.com/user-attachments/assets/53a37ee1-4926-4ee0-a91e-203df7d0492e" />
+<img width="3120" height="4160" alt="IMG20261008151644" src="https://github.com/user-attachments/assets/d306de43-1d88-42d2-a65e-83f6c4c46ac3" />
+1.分别用瞬态分析验证tao和交流分析验证截止频率弄清自定的低通滤波器特性
+2.分别测自定电路与其戴维南定理等效电路模型的输出电压电流接负载的情况，进行对比后验证戴维南定理
+3.算了给定电路的各项理论值在计算gm和av时我忽略了管子输出电阻是ai指出并重新计算才得出与仿真数据相似的结果
+4.三项任务均使用pyspice得到仿真数据并做手算仿真对比图
+查证后ai没什么问题相反比我计算的更精细也指出了我的不足task1的截止频率计算ai使用圆周率小数点后15-16位也帮我重新计算了gm和av
+我上传了我的手画图后复制了任务要求给定数据并让ai使用pyspice得到仿真数据做手算仿真对比图
+踩坑1：我还让他有什么缺少的数据及时问我不要自己乱填
+踩坑2：个人主页上传时变成游戏2048（文件名称问题）
+最后我让ai给我一个详细的能让什么都不懂的人都能看懂的报告，专业名词和一些表示某种器件或概念的字母要有注释并进行对比观察我和ai理解的出入整理后得report（详见三个电路目录中的report直接用浏览器打开）
