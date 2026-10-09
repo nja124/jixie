@@ -16,13 +16,17 @@ cd；打开或更改目录ls；列目录中文件mkdir；创建目录
 <img width="3120" height="4160" alt="IMG20261008151621" src="https://github.com/user-attachments/assets/6dcfe161-d3e6-4ed1-9bfa-310ee4c0f8ed" />
 <img width="3120" height="4160" alt="IMG20261008151557" src="https://github.com/user-attachments/assets/53a37ee1-4926-4ee0-a91e-203df7d0492e" />
 <img width="3120" height="4160" alt="IMG20261008151644" src="https://github.com/user-attachments/assets/d306de43-1d88-42d2-a65e-83f6c4c46ac3" />
+<img width="1170" height="676" alt="small_signal_3" src="https://github.com/user-attachments/assets/2ea4f32b-8b4e-4bc7-8557-43d4f0069e06" />
+<img width="936" height="858" alt="dc_path_3" src="https://github.com/user-attachments/assets/d1f84223-a99c-4eb3-9a17-d623af83ac04" />
 1.分别用瞬态分析验证tao和交流分析验证截止频率弄清自定的低通滤波器特性
 2.分别测自定电路与其戴维南定理等效电路模型的输出电压电流接负载的情况，进行对比后验证戴维南定理
-3.算了给定电路的各项理论值在计算gm和av时我忽略了管子输出电阻是ai指出并重新计算才得出与仿真数据相似的结果
+3.算Vgs等来判断是否工作在饱和区，算avgm判断放大倍数在计算gm和av时我忽略了管子输出电阻是ai指出并重新计算才得出与仿真数据相似的结果
 4.三项任务均使用pyspice得到仿真数据并做手算仿真对比图
+5.在ai给出结果是我会一直追问他某个结果是怎么得来的如：请结合具体电路图，用更直观的例子解释小信号等效模型的推导过程
 查证后ai没什么问题相反比我计算的更精细也指出了我的不足task1的截止频率计算ai使用圆周率小数点后15-16位也帮我重新计算了gm和av
-我上传了我的手画图后复制了协会任务要求给定数据并让ai使用pyspice得到仿真数据做手算仿真对比图
-踩坑1：我还让他有什么缺少的数据及时问我不要自己乱填(原因是复制任务要求有一句话  本题允许自定  无语死了）
+我上传了我的手画图后复制了协会任务要求给定数据并让ai帮我画nmos的直流通路和小信号等效模型并让ai使用pyspice得到仿真数据做手算仿真对比图
+踩坑1：我还让他有什么缺少的数据及时问我不要自己乱填(原因是复制任务要求有一句话  本题允许自定  无语）
 踩坑2：个人主页上传时变成游戏2048（文件名称问题）
 最后我让ai给我一个详细的能让什么都不懂的人都能看懂的报告，专业名词和一些表示某种器件或概念的字母要有注释并进行对比观察我和ai理解的出入整理后得report（详见三个电路目录中的report直接用浏览器打开）
 .json是输出结果.png是图片包含电路图对比表.py是代码
+前两个还算轻松就nmos有点难加上我还要在网上
